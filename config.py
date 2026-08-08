@@ -36,15 +36,29 @@ def carregar_env(arquivo: Path) -> dict:
 
 
 def _secrets_streamlit():
-    """Retorna dict com os segredos do Streamlit Cloud, se disponível."""
+    """Retorna dict com os segredos do Streamlit Cloud, se disponível.
+
+    Normaliza as seções aninhadas (ex.: [service_account]) para dict real,
+    pois em algumas versões do Streamlit o valor retornado é um objeto
+    Mapping próprio, e não um dict nativo.
+    """
     try:
         import streamlit as st
 
-        if hasattr(st, "secrets"):
-            return dict(st.secrets)
+        if not hasattr(st, "secrets"):
+            return {}
+        base = dict(st.secrets)
+        for chave, valor in list(base.items()):
+            if isinstance(valor, dict):
+                continue
+            # Tenta converter Mapping/objeto de secrets em dict real.
+            try:
+                base[chave] = dict(valor)
+            except Exception:
+                base[chave] = str(valor)
+        return base
     except Exception:
-        pass
-    return {}
+        return {}
 
 
 def localizar_credencial() -> Path:
@@ -93,6 +107,14 @@ def carregar_config():
     # Credencial da service account é dict python: (Streamlit Cloud: segredo
     # `service_account = { ... }`; env local: JSON na pasta bot/credenciais/).
     cred_secrets = secrets.get("service_account")
+    if not isinstance(cred_secrets, dict) and isinstance(cred_secrets, str):
+        # Aceita a seção colada como JSON (linha única) no painel de secrets.
+        import json as _json
+
+        try:
+            cred_secrets = _json.loads(cred_secrets)
+        except Exception:
+            cred_secrets = None
     if isinstance(cred_secrets, dict) and cred_secrets.get("private_key"):
         config["credencial"] = "secrets:service_account"
         config["credencial_dict"] = dict(cred_secrets)
