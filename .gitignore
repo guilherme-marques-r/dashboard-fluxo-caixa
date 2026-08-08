@@ -1,0 +1,10 @@
+# Segredos e dados sensíveis — nunca subir para o repositório
+.env
+**/credenciais/
+**/dados/
+*.log
+secrets.toml
+
+# Arquivos gerados pelo Python
+__pycache__/
+*.pyc
